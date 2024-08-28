@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+
 export const signup = asyncHandler(async (req, res) => {
   const { username, email, password } = req.body;
   const hashedPassword = bcryptjs.hashSync(password, 10);
@@ -98,3 +99,11 @@ export const google = asyncHandler(async (req, res) => {
 export const signout = asyncHandler(async (req, res) => {
   res.clearCookie("access_token").status(200).json("Sign out Success");
 });
+
+export const verifyEmail = asyncHandler(async (req, res) => {});
+
+export const forgotPassword = asyncHandler(async (req, res) => {});
+
+export const resetPassword = asyncHandler(async (req, res) => {});
+
+export const verifyAuth = asyncHandler(async (req, res) => {});
