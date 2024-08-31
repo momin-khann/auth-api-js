@@ -6,9 +6,9 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 
 export const signup = asyncHandler(async (req, res) => {
-  const { username, email, password } = req.body;
+  const { name, email, password } = req.body;
   const hashedPassword = bcryptjs.hashSync(password, 10);
-  const newUser = new User({ username, email, password: hashedPassword });
+  const newUser = new User({ name, email, password: hashedPassword });
   if (!newUser)
     throw new ApiError(400, "Something went wrong While registering User.");
   await newUser.save();
@@ -29,7 +29,7 @@ export const signin = asyncHandler(async (req, res) => {
 
   const token = jwt.sign(
     {
-      id: validUser._id,
+      _id: validUser._id,
     },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_SECRET_EXPIRY },
@@ -40,7 +40,7 @@ export const signin = asyncHandler(async (req, res) => {
   const expiryDate = new Date(Date.now() + 3600000); // 1 hour
 
   res
-    .cookie("access_token", token, { httpOnly: true, expires: expiryDate })
+    .cookie("access_token", token, { httpOnly: true, secure: true, expires: expiryDate })
     .status(200)
     .json(new ApiResponse(200, rest, "Successful Login"));
 });
@@ -106,4 +106,19 @@ export const forgotPassword = asyncHandler(async (req, res) => {});
 
 export const resetPassword = asyncHandler(async (req, res) => {});
 
-export const verifyAuth = asyncHandler(async (req, res) => {});
+export const verifyAuth = asyncHandler(async (req, res) => {
+  const token = req.cookies?.access_token;
+
+  if (!token){
+    return res.status(200).json(new ApiResponse(200, null, "token not found"));
+  }
+
+  const decoded = jwt.verify(req.cookies?.access_token, process.env.JWT_SECRET);
+  const user = await User.findById(decoded._id).select("-password");
+
+  if (!user) {
+    return res.status(400).json({ success: false, message: "User not found" });
+  }
+
+  res.status(200).json(new ApiResponse(200, user, "User found."));
+});

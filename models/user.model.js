@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    username: {
+    name: {
       type: String,
-      required: [true, "Username is required."],
+      required: [true, "Name is required."],
       unique: true,
     },
     email: {
@@ -24,6 +24,11 @@ const userSchema = new mongoose.Schema(
     isVerified: {
       type: Boolean,
       default: false,
+    },
+    role: {
+      type: String,
+      enum: ["USER", "ADMIN"],
+      default: "USER"
     },
     resetPasswordToken: String,
     resetPasswordExpiresAt: Date,
