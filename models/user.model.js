@@ -5,12 +5,12 @@ const userSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, "Name is required."],
-      unique: true,
     },
     email: {
       type: String,
       required: [true, "Email is required."],
       unique: true,
+      index: true,
     },
     password: {
       type: String,
@@ -37,4 +37,8 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+// compound index - index on multiple fields
+userSchema.index({ verificationToken: 1, verificationTokenExpiresAt: 1 });
+
 export const User = mongoose.model("User", userSchema);
