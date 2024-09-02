@@ -2,15 +2,15 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    username: {
+    name: {
       type: String,
-      required: [true, "Username is required."],
-      unique: true,
+      required: [true, "Name is required."],
     },
     email: {
       type: String,
       required: [true, "Email is required."],
       unique: true,
+      index: true,
     },
     password: {
       type: String,
@@ -25,6 +25,11 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    role: {
+      type: String,
+      enum: ["USER", "ADMIN"],
+      default: "USER"
+    },
     resetPasswordToken: String,
     resetPasswordExpiresAt: Date,
     verificationToken: String,
@@ -32,4 +37,8 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+// compound index - index on multiple fields
+userSchema.index({ verificationToken: 1, verificationTokenExpiresAt: 1 });
+
 export const User = mongoose.model("User", userSchema);
