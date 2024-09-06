@@ -4,7 +4,13 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-import { sendVerificationEmail, sendWelcomeEmail } from "../email/emails.js";
+import {
+  sendPasswordResetEmail,
+  sendResetSuccessEmail,
+  sendVerificationEmail,
+  sendWelcomeEmail,
+} from "../email/emails.js";
+import { ONE_DAY, ONE_HOUR, TEN_MINUTES } from "../utils/helper.js";
 
 export const signup = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
@@ -16,7 +22,7 @@ export const signup = asyncHandler(async (req, res) => {
     email,
     password: hashedPassword,
     verificationToken: otp,
-    verificationTokenExpiresAt: Date.now() + 10 * 60 * 60 * 1000, // 10 minutes expiry
+    verificationTokenExpiresAt: Date.now() + TEN_MINUTES, // 10 minutes expiry
   });
 
   if (!newUser)
@@ -42,6 +48,7 @@ export const signin = asyncHandler(async (req, res) => {
   if (!validUser) throw new ApiError(404, "User not Found.");
 
   const validPassword = bcryptjs.compareSync(password, validUser.password);
+
   if (!validPassword) throw new ApiError(401, "Wrong Credentials");
 
   const token = jwt.sign(
@@ -54,7 +61,7 @@ export const signin = asyncHandler(async (req, res) => {
 
   const { password: hashedPassword, ...rest } = validUser._doc;
 
-  const expiryDate = new Date(Date.now() + 24 * 60 * 60 * 1000); // 1 day
+  const expiryDate = new Date(Date.now() + ONE_DAY); // 1 day
 
   res
     .cookie("access_token", token, {
@@ -82,7 +89,7 @@ export const google = asyncHandler(async (req, res) => {
 
     const { password, ...rest } = validUser._doc;
 
-    const expiryDate = new Date(Date.now() + 3600000); // 1 hour
+    const expiryDate = new Date(Date.now() + 3_600_000); // 1 hour
     res
       .cookie("access_token", token, {
         httpOnly: true,
@@ -143,9 +150,9 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_SECRET_EXPIRY },
   );
-  const expiryDate = new Date(Date.now() + 24 * 60 * 60 * 1000); // 1 day
+  const expiryDate = new Date(Date.now() + ONE_DAY); // 1 day
 
-  // await sendWelcomeEmail(user.email, user.name);
+  await sendWelcomeEmail(user.email, user.name);
 
   res
     .cookie("access_token", token, {
@@ -159,14 +166,57 @@ export const verifyEmail = asyncHandler(async (req, res) => {
 
 export const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
-  try{
-    const user = await User.findOne({email});
-  }catch (error) {
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) throw new ApiError(404, "User not found");
+
+    let crypto = await import("node:crypto");
+    const token = crypto
+      .createHmac("sha256", process.env.JWT_SECRET)
+      .digest("hex");
+
+    user.resetPasswordToken = token;
+    user.resetPasswordExpiresAt = Date.now() + ONE_HOUR; // 1 hour
+    await user.save();
+
+    await sendPasswordResetEmail(
+      email,
+      `${process.env.CLIENT_URL}/reset-password/${token}`,
+    );
+
+    res
+      .status(200)
+      .json(
+        new ApiResponse(200, null, "Password reset link sent to your email"),
+      );
+  } catch (error) {
     console.error("error: ", error.message);
   }
 });
 
-export const resetPassword = asyncHandler(async (req, res) => {});
+export const resetPassword = asyncHandler(async (req, res) => {
+  const { token } = req.params;
+  const { new_password } = req.body;
+
+  const user = await User.findOne({
+    resetPasswordToken: token,
+    resetPasswordExpiresAt: { $gt: Date.now() },
+  });
+
+  if (!user) throw new ApiError(404, "user not found");
+
+  const hashedPassword = bcryptjs.hashSync(new_password, 10);
+
+  user.password = hashedPassword;
+  await user.save();
+
+  await sendResetSuccessEmail(user.email);
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "password reset is successful"));
+});
 
 export const verifyAuth = asyncHandler(async (req, res) => {
   const token = req.cookies?.access_token;
