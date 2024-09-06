@@ -8,6 +8,31 @@ export const test = (req, res) => {
   res.send("Api is running!!");
 };
 
+// change password
+export const changePassword = asyncHandler(async (req, res) => {
+  if (req.user.id !== req.params.id) {
+    return res
+      .status(401)
+      .json(new ApiError(401, "You can only update your account !!"));
+  }
+
+  const { id } = req.params;
+  const { new_password } = req.body;
+
+  const user = await User.findById(id);
+
+  if (!user) return res.status(404).json(new ApiError(404, "user not found"));
+
+  const hashedPassword = bcryptjs.hashSync(new_password, 10);
+
+  user.password = hashedPassword;
+  await user.save();
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, user, "password changed successfully"));
+});
+
 // update user
 export const updateUser = asyncHandler(async (req, res) => {
   if (req.user.id !== req.params.id) {
@@ -16,29 +41,24 @@ export const updateUser = asyncHandler(async (req, res) => {
       .json(new ApiError(401, "You can only update your account !!"));
   }
 
-  const { password } = req.body;
-  if (password) {
-    req.body.password = bcryptjs.hashSync(password, 10);
-  }
+  const { name, role, tfa } = req.body;
 
   const updatedUser = await User.findByIdAndUpdate(
     req.params.id,
     {
       $set: {
-        username: req.body.username,
-        email: req.body.email,
-        password: req.body.password,
-        profilePicture: req.body.profilePicture,
+        name: name,
+        role: role,
       },
     },
     { new: true },
-  );
+  ).select("-password")
 
-  const { password: hashedPassword, ...rest } = updatedUser._doc;
+  // const { password: hashedPassword, ...rest } = updatedUser._doc;
 
   res
     .status(201)
-    .json(new ApiResponse(200, rest, "User updated Successfully."));
+    .json(new ApiResponse(200, updatedUser, "User updated Successfully."));
 });
 
 // delete user

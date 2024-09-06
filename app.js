@@ -17,7 +17,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/auth", authRoutes);
 
 // Initial Running
-app.get("/", (req, res) => {
+app.get("/ping", (req, res) => {
   res.send("Api is running!!!");
 });
 
